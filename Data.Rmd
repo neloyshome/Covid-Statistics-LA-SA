@@ -1,0 +1,75 @@
+---
+title: "Data Cleaning"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(rstanarm)
+```
+
+```{r}
+confirmed_deaths <- read_csv("Raw_Data/time_series_covid19_deaths_global_narrow (1).csv") %>%
+  clean_names() %>%
+  select(country_region, date, value) %>%
+  rename(deaths = value) %>%
+  slice(2:85908) %>%
+  filter(str_sub(date, 7, 7) %in% c("3", "4", "5", "6", "7", "8", "9")) %>%
+  mutate(deaths = as.numeric(deaths))
+
+# Read in, make the date formats match
+
+confirmed_cases <- read_csv("Raw_Data/time_series_covid19_confirmed_global.csv") %>%
+  pivot_longer(names_to = "Date",
+               values_to = "Number of Cases",
+               cols = 5:271) %>%
+  clean_names() %>%
+  mutate(date = mdy(date)) %>%
+  select(country_region, date, number_of_cases) %>%
+  mutate(date = as.character(date)) %>%
+  filter(str_sub(date, 7, 7) %in% c("3", "4", "5", "6", "7", "8", "9")) %>%
+  mutate(number_of_cases = as.numeric(number_of_cases))
+
+# To implement my regression, I want case number and death count in the same tibble,
+# thus a join function
+
+confirmed_cases_and_deaths <- left_join(confirmed_deaths, confirmed_cases, by = c("date", "country_region"))
+
+confirmed_cases_la <- confirmed_cases %>% 
+  filter(country_region %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", 
+                               "Costa Rica", "Cuba", "Dominican Republic", "Ecuador", "El Salvador", 
+                               "Guatemala", "Haiti", "Honduras", "Mexico", "Nicaragua", "Paraguay", 
+                               "Peru", "Uruguay", "Venezuela")) %>% 
+  clean_names()
+
+confirmed_cases_sa <- confirmed_cases %>%
+  filter(country_region %in% c("Afghanistan", "Bangladesh", "India", "Nepal", "Pakistan")) %>%
+  clean_names()
+
+# Want to create a new column for region so I can include that in my regression
+
+confirmed_cases_model <- confirmed_cases_and_deaths %>%
+  mutate(region = case_when(country_region %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", 
+                               "Costa Rica", "Cuba", "Dominican Republic", "Ecuador", "El Salvador",
+                               "Guatemala", "Haiti", "Honduras", "Mexico", "Nicaragua", "Paraguay",
+                               "Peru", "Uruguay", "Venezuela") ~ "Latin America",
+                            country_region %in% c("Afghanistan", "Bangladesh", "India", "Nepal", "Pakistan") ~ "South Asia",
+                            TRUE ~ "Other"))
+  
+# Create stan_glm model regressing mortality on case count and region
+                             
+fit_1 <- stan_glm(data = confirmed_cases_model,
+                  formula = deaths ~ number_of_cases + region,
+                  refresh = 0)
+print(fit_1, detail = FALSE)
+                               
+write_rds(confirmed_cases, "Covid-Statistics-LA-SA/Confirmed_Cases.rds")
+write_rds(confirmed_cases_la, "Covid-Statistics-LA-SA/Confirmed_Cases_La.rds")
+write_rds(confirmed_cases_sa, "Covid-Statistics-LA-SA/Confirmed_Cases_Sa.rds")
+write_rds(confirmed_cases_model, "Covid-Statistics-LA-SA/Confirmed_Cases_Model.rds")
+```
+
+$$ mortality = \Beta_0 + \Beta_1*number_of_cases + \Beta_2*latin_america + \Beta_3*south_asia $$

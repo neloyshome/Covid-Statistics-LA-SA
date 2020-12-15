@@ -1,0 +1,92 @@
+---
+title: "heat_maps"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+
+```
+
+
+```{r mental health statistics}
+pre_covid_mh <- read_csv("Raw_Data/pre-covid.csv", skip = 2) %>%
+  slice(2:9, 11:52) %>%
+  clean_names() %>%
+  dplyr::select(location, adults_reporting_any_mental_illness_in_the_past_year) %>%
+  rename(state = location,
+         illness_pct = adults_reporting_any_mental_illness_in_the_past_year)
+
+post_covid_mh <- read_csv("Raw_Data/post-covid.csv", skip = 2) %>%
+  slice(2:9, 11:52) %>%
+  clean_names() %>%
+  rename(state = location,
+         anx_dep_pct = adults_reporting_symptoms_of_anxiety_or_depressive_disorder)
+
+pre_post_covid_mh <- inner_join(pre_covid_mh, post_covid_mh, by = "state") %>%
+  pivot_longer(names_to = "Pre_or_Post",
+               values_to = "Percentage",
+               cols = illness_pct:anx_dep_pct)
+
+write_rds(pre_post_covid_mh, "Covid-Statistics-LA-SA/pre_post_covid_mh.rds")
+
+# Want to facet wrap by state so that all 50 states have a separate graphic
+
+pre_post_covid_mh %>%
+  ggplot(aes(x = Pre_or_Post, y = Percentage, fill = Pre_or_Post)) +
+  geom_col() +
+  facet_wrap(~ state, nrow = 5) +
+  labs(title = "Increase in Mental Health Disorders since Covid-19 Pandemic",
+       subtitle = "Higher Rates of Anxiety/Depression Across the Board",
+       x = "Current vs 2018",
+       y = "Percentage with Mental Health Condition") + 
+  scale_x_discrete(labels = c(" ", " ")) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(axis.text = element_text(size = 5), strip.text = element_text(size = 7), 
+        panel.grid = element_blank(), panel.spacing.x = unit(3, "mm")) +
+  scale_fill_manual(name = "Current vs 2018",
+                    values = c("red", "blue"),
+                    labels = c("Current", "2018"))
+
+```
+
+```{r race/ethnicity statistics}
+race_ethnicity <- read_csv("Raw_Data/covid_by_ethnicity.csv", skip = 2) %>%
+   clean_names() %>%
+   dplyr::select(location, white_percent_of_cases, white_percent_of_total_population,
+                black_percent_of_cases, black_percent_of_total_population,
+                hispanic_percent_of_cases, hispanic_percent_of_total_population,
+                asian_percent_of_cases, asian_percent_of_total_population) %>%
+   slice(2:9, 11:52) %>%
+   mutate(prop_white = as.numeric(white_percent_of_cases) / as.numeric(white_percent_of_total_population),
+          prop_black = as.numeric(black_percent_of_cases) / as.numeric(black_percent_of_total_population),
+          prop_hispanic = as.numeric(hispanic_percent_of_cases) / as.numeric(hispanic_percent_of_total_population),
+          prop_asian = as.numeric(asian_percent_of_cases) / as.numeric(hispanic_percent_of_total_population)) %>%
+   rename(state = location) %>%
+   dplyr::select(state, prop_white, prop_black, prop_hispanic, prop_asian) %>%
+   pivot_longer(names_to = "Race",
+             values_to = "Proportion",
+             cols = prop_white:prop_asian)
+
+write_rds(race_ethnicity, "Covid-Statistics-LA-SA/race_ethnicity.rds")
+
+race_ethnicity %>%
+   ggplot(aes(x = Race, y = Proportion, fill = Race)) +
+   geom_col() +
+   facet_wrap(~ state, nrow = 5) +
+   labs(title = "Proportion of Covid-19 Cases in US States by Race/Ethnicity",
+        subtitle = "Black/Hispanic Minorities Affected at Higher Rates",
+        x = "Race",
+        y = "Proportional Measurement of Cases") +
+   scale_x_discrete(labels = c(" ", " ", " ", " ")) +
+   theme(axis.text = element_text(size = 5), strip.text = element_text(size = 7),
+         panel.grid = element_blank(), panel.spacing.x = unit(3, "mm")) +
+   scale_fill_manual(name = "Race",
+                     values = c("red", "blue", "green", "yellow"),
+                     labels = c("White", "Black", "Hispanic", "Asian"))
+race_ethnicity
+
+```
+
