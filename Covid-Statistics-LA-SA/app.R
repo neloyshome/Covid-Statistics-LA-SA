@@ -25,6 +25,9 @@ race_ethnicity <- read_rds("race_ethnicity.rds")
 pre_post_covid_mh <- read_rds("pre_post_covid_mh.rds")
 
 # Define UI for application that draws a histogram
+
+# First panel ofr impact on minorities and mental health disorders
+
 ui <- fluidPage(
     navbarPage(
         "Covid-19: Domestic Impact and International Pandemic Management",
@@ -43,6 +46,8 @@ ui <- fluidPage(
                      
                  )
         ),
+        
+        # Second panel: geom_smooth() for case counts, embedded 2 graphs for comparison
         
         tabPanel("Latin America",
                  fluidPage(
@@ -72,6 +77,8 @@ ui <- fluidPage(
                      )
                  ),
         
+        # Similar to previous panel, adjusted for South Asian countries specifically
+        
         tabPanel("South Asia",
                  fluidPage(
                      titlePanel("South Asia Covid-19 Case Count"),
@@ -97,6 +104,9 @@ ui <- fluidPage(
                      )
                  )),
         
+        # Model panel: implementation coded in Data.Rmd, embedded in the Shiny app with
+        # gt and broom.mixed packages
+        
         tabPanel("Model",
                  titlePanel("Linear Regression Model"),
                  h1("Mortality as a Function of Region"),
@@ -116,6 +126,8 @@ ui <- fluidPage(
             
                  
         ),
+        
+        # Final page -- project description, data sources, Github link
         
         tabPanel("About",
                  h1("Background"),
